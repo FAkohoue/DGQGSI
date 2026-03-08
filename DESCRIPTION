@@ -2,7 +2,7 @@ Package: DGQGSI
 Type: Package
 Title: Desired-Gain Selection Index and Desired-Gain QGSI Tools
 Version: 0.1.0
-Authors@R: person(given = "Felicien", family = "Akohoue", email = "your_email@example.com", role = c("aut", "cre"))
+Authors@R: person(given = "Felicien", family = "Akohoue", email = "akohoue.f@gmail.com", role = c("aut", "cre"))
 Description: Tools to compute desired-gain selection indices, desired-gain adapted
     quadratic genomic selection indices, automatic quadratic matrix
     construction, wrapper workflows, and comparison tables for breeding data.
@@ -12,7 +12,9 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Imports:
-    data.table
+    data.table,
+    stats,
+    utils
 Suggests:
     knitr,
     rmarkdown,
