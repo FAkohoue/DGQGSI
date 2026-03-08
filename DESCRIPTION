@@ -20,6 +20,6 @@ Suggests:
 Config/testthat/edition: 3
 VignetteBuilder:
     knitr
-URL: https://github.com/<YOUR_GITHUB_USERNAME>/DGQGSI,
-     https://<YOUR_GITHUB_USERNAME>.github.io/DGQGSI/
-BugReports: https://github.com/<YOUR_GITHUB_USERNAME>/DGQGSI/issues
+URL: https://github.com/FAkohoue/DGQGSI,
+     https://FAkohoue.github.io/DGQGSI/
+BugReports: https://github.com/FAkohoue/DGQGSI/issues
