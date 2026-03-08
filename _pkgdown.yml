@@ -1,0 +1,45 @@
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#0C4C80"
+    secondary: "#3AA0FF"
+    success: "#7ED957"
+    base_font: {google: "Inter"}
+    heading_font: {google: "Inter"}
+    code_font: {google: "Fira Code"}
+
+url: https://<YOUR_GITHUB_USERNAME>.github.io/DGQGSI/
+
+authors:
+  Felicien Akohoue:
+    href: https://github.com/<YOUR_GITHUB_USERNAME>
+
+home:
+  title: DGQGSI
+  description: Desired-gain selection index and desired-gain QGSI tools for breeding pipelines.
+
+navbar:
+  bg: primary
+  structure:
+    left: [home, reference, articles, news]
+    right: [github]
+  components:
+    github:
+      icon: fa-github
+      href: https://github.com/<YOUR_GITHUB_USERNAME>/DGQGSI
+
+reference:
+  - title: Core workflows
+    contents:
+      - run_desired_gain_index_Joukhadar2024
+      - run_qgsi_desired_gain
+      - run_dgsi_qgsi_pipeline
+  - title: Supporting tools
+    contents:
+      - construct_Wd_from_dg
+      - compare_dg_and_qgsi
+
+articles:
+  - title: Get started
+    contents:
+      - DGQGSI-introduction

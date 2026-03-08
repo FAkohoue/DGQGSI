@@ -1,0 +1,25 @@
+Package: DGQGSI
+Type: Package
+Title: Desired-Gain Selection Index and Desired-Gain QGSI Tools
+Version: 0.1.0
+Authors@R: person(given = "Felicien", family = "Akohoue", email = "your_email@example.com", role = c("aut", "cre"))
+Description: Tools to compute desired-gain selection indices, desired-gain adapted
+    quadratic genomic selection indices, automatic quadratic matrix
+    construction, wrapper workflows, and comparison tables for breeding data.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    data.table
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+VignetteBuilder:
+    knitr
+URL: https://github.com/<YOUR_GITHUB_USERNAME>/DGQGSI,
+     https://<YOUR_GITHUB_USERNAME>.github.io/DGQGSI/
+BugReports: https://github.com/<YOUR_GITHUB_USERNAME>/DGQGSI/issues
