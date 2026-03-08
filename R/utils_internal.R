@@ -1,5 +1,29 @@
 # Internal utilities for DGQGSI
 
+# nocov start
+if (getRversion() >= "2.15.1") {
+  utils::globalVariables(c(
+    "..dg_cols_present",
+    "..qgsi_cols_present",
+    "SelectionIndex",
+    "Selected",
+    "Rank_SelectionIndex",
+    "LinearDGPart",
+    "QuadraticDGPart",
+    "QGSI_DG",
+    "Rank_QGSI_DG",
+    "Rank_LinearDGPart",
+    "Rank_QuadraticDGPart",
+    "DG_SelectionIndex",
+    "DG_Rank_SelectionIndex",
+    "DG_Selected",
+    "RankDiff_DG_minus_QGSI",
+    "AbsRankDiff_DG_vs_QGSI",
+    "SignSame_DG_QGSI"
+  ))
+}
+# nocov end
+
 #' Internal debug message helper
 #'
 #' @param debug Logical.
