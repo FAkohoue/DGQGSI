@@ -8,11 +8,11 @@ template:
     heading_font: {google: "Inter"}
     code_font: {google: "Fira Code"}
 
-url: https://<YOUR_GITHUB_USERNAME>.github.io/DGQGSI/
+url: https://FAkohoue.github.io/DGQGSI/
 
 authors:
   Felicien Akohoue:
-    href: https://github.com/<YOUR_GITHUB_USERNAME>
+    href: https://github.com/FAkohoue
 
 home:
   title: DGQGSI
@@ -26,7 +26,7 @@ navbar:
   components:
     github:
       icon: fa-github
-      href: https://github.com/<YOUR_GITHUB_USERNAME>/DGQGSI
+      href: https://github.com/FAkohoue/DGQGSI
 
 reference:
   - title: Core workflows
