@@ -1,4 +1,5 @@
-#' Run a desired-gain selection index with optional trait scaling and threshold-based or top-N selection
+#' Run a desired-gain selection index with optional trait scaling and
+#' threshold-based or top-N selection
 #'
 #' @description
 #' Implements a desired-gain selection index optimization strategy inspired by
@@ -10,41 +11,206 @@
 #' The workflow:
 #' \enumerate{
 #'   \item aligns `init_data` and `cand_data` by `id_col`;
-#'   \item optionally flips traits in `lower_is_better` so all objectives are in the same direction;
+#'   \item optionally flips traits in `lower_is_better` so all objectives are in
+#'         the same direction;
 #'   \item optionally scales traits using `ref_data`;
-#'   \item computes a phenotypic correlation matrix `P` and a genetic covariance matrix `G`;
-#'   \item repeatedly samples candidate desired-gain vectors, computes index coefficients, evaluates realized gains on the selected set, and keeps the best solution according to a goodness-of-fit criterion.
+#'   \item computes a phenotypic correlation matrix `P` and a genetic covariance
+#'         matrix `G`;
+#'   \item repeatedly samples candidate desired-gain vectors, computes index
+#'         coefficients, evaluates realized gains on the selected set, and keeps
+#'         the best solution according to a goodness-of-fit criterion.
 #' }
 #'
-#' The function is selection-oriented: in addition to a ranking, it returns the
-#' selected subset defined either by `top_n` or by trait thresholds.
+#' This function is **selection-oriented**. It does not only return one index
+#' value per genotype, but also determines a selected subset based on either:
+#' \itemize{
+#'   \item the highest index values (`select_mode = "top_n"`), or
+#'   \item user-defined minimum trait thresholds
+#'         (`select_mode = "trait_thresholds"`).
+#' }
 #'
-#' @param init_data A `data.frame` or `data.table` containing identifiers and metadata to preserve.
-#' @param cand_data A `data.frame` or `data.table` containing candidate trait values.
-#' @param trait_cols Character vector of trait column names used in the index.
-#' @param ref_data Optional reference data used for scaling and for estimating `P` and `G`. If `NULL`, `cand_data` is used.
-#' @param id_col Character identifier column. Default is `"GenoID"`.
-#' @param scale_traits Logical; if `TRUE`, center and scale traits using `ref_data`. Default is `FALSE`.
-#' @param lower_is_better Optional character vector of trait names for which lower values are preferred.
-#' @param G Optional square genetic covariance matrix. If `NULL`, estimated from `cov(ref_mat)`.
-#' @param dg Named numeric desired-gain vector.
-#' @param select_mode One of `"top_n"` or `"trait_thresholds"`.
-#' @param n_select Integer number of selected genotypes when `select_mode = "top_n"`.
-#' @param trait_min_sd Named numeric vector of minimum thresholds used when `select_mode = "trait_thresholds"`.
-#' @param fallback_to_top_n Logical; if `TRUE`, falls back to top-N selection when threshold selection returns zero genotypes.
-#' @param n_iter Integer iterations per replicate.
-#' @param n_rep Integer number of optimization replicates.
-#' @param sd_scale Numeric perturbation scale around the current best desired-gain vector.
-#' @param seed Integer random seed.
-#' @param ridge_P Numeric ridge penalty added to `P`.
-#' @param ridge_M Numeric ridge penalty added to the inner matrix `M`.
-#' @param debug Logical; if `TRUE`, print debug messages.
-#' @param return_all_reps Logical; if `TRUE`, return all replicate details.
+#' If your trait values are already expressed in comparable standardized units
+#' (for example SD units), set `scale_traits = FALSE`. If raw trait values are
+#' used, `scale_traits = TRUE` is generally more appropriate.
 #'
-#' @return A list with optimized coefficients, realized gains, replicate diagnostics, ranked genotypes, and selected/non-selected subsets.
+#' @param init_data A `data.frame` or `data.table` containing genotype
+#'   identifiers and any metadata you want to preserve in the final output.
+#'   Typical columns may include `GenoID`, family, group, or other descriptive
+#'   information. The function returns this table augmented with the final
+#'   `SelectionIndex` and `Selected` columns.
+#'
+#' @param cand_data A `data.frame` or `data.table` containing the candidate
+#'   trait values used to build the desired-gain index. It must contain
+#'   `id_col` and all columns listed in `trait_cols`. Each row represents one
+#'   genotype and each trait column should be numeric or coercible to numeric.
+#'
+#' @param trait_cols Character vector giving the names of the trait columns to
+#'   include in the index. These names must be present in both `cand_data` and
+#'   `ref_data` (or in `cand_data` alone if `ref_data = NULL`). The order of
+#'   `trait_cols` defines the order used for `dg`, `trait_min_sd`, `P`, and `G`.
+#'
+#' @param ref_data Optional `data.frame` or `data.table` used as the reference
+#'   population for scaling traits and for estimating the phenotypic correlation
+#'   matrix `P` and, if necessary, the genetic covariance matrix `G`. If `NULL`,
+#'   `cand_data` is used as the reference.
+#'
+#' @param id_col Character string naming the genotype identifier column used to
+#'   align `init_data` and `cand_data`. Default is `"GenoID"`. The function
+#'   requires that this column exists in both `init_data` and `cand_data`.
+#'
+#' @param scale_traits Logical. If `TRUE`, the trait columns in both candidate
+#'   and reference data are centered and scaled using the mean and standard
+#'   deviation of `ref_data`. Use this when traits are on different raw scales.
+#'   If `FALSE`, the function assumes traits are already on a comparable scale,
+#'   such as SD units.
+#'
+#' @param lower_is_better Optional character vector naming traits for which
+#'   smaller values are favorable. These traits are internally multiplied by
+#'   `-1` so that all traits are oriented in a common “higher is better”
+#'   direction during optimization.
+#'
+#' @param G Optional square genetic covariance matrix among traits. Its dimension
+#'   must be `length(trait_cols) x length(trait_cols)`. If `NULL`, the function
+#'   estimates `G` as `cov(ref_mat)` from the reference trait matrix.
+#'
+#' @param dg Named numeric vector of desired gains, with names matching
+#'   `trait_cols`. Each value represents the desired response for one trait in
+#'   the trait space used by the function. For best interpretability, `dg`
+#'   should be on the same scale as the transformed trait values.
+#'
+#' @param select_mode Character string specifying how the selected subset is
+#'   determined. One of:
+#'   \itemize{
+#'     \item `"top_n"`: selects the `n_select` highest-ranked genotypes by the
+#'           final index;
+#'     \item `"trait_thresholds"`: selects genotypes meeting minimum trait
+#'           thresholds in the transformed trait space.
+#'   }
+#'
+#' @param n_select Integer giving the number of genotypes to select when
+#'   `select_mode = "top_n"`. Ignored when `select_mode = "trait_thresholds"`
+#'   unless fallback is triggered.
+#'
+#' @param trait_min_sd Named numeric vector of minimum acceptable trait values
+#'   used when `select_mode = "trait_thresholds"`. Names must match
+#'   `trait_cols`. Thresholds are applied after direction flipping and optional
+#'   scaling, so they should be specified on that transformed scale.
+#'
+#' @param fallback_to_top_n Logical. Relevant only when
+#'   `select_mode = "trait_thresholds"`. If `TRUE` and no genotype passes the
+#'   thresholds, the function falls back to selecting the top `n_select`
+#'   genotypes by the final index. If `FALSE`, the function stops with an error.
+#'
+#' @param n_iter Integer giving the number of optimization iterations performed
+#'   within each replicate. Larger values increase the search effort but also
+#'   increase computation time.
+#'
+#' @param n_rep Integer giving the number of independent optimization replicates.
+#'   Replicates are useful because the search is stochastic, and different
+#'   replicates may converge to slightly different solutions.
+#'
+#' @param sd_scale Numeric factor controlling the perturbation scale used when
+#'   sampling candidate desired-gain vectors around the current best solution.
+#'   Larger values increase exploration; smaller values keep the search more
+#'   local around the current optimum.
+#'
+#' @param seed Integer random seed used to make the stochastic optimization
+#'   reproducible.
+#'
+#' @param ridge_P Numeric ridge penalty added to the phenotypic correlation
+#'   matrix `P` before inversion. This can improve numerical stability when `P`
+#'   is close to singular.
+#'
+#' @param ridge_M Numeric ridge penalty added to the inner matrix `M` during the
+#'   coefficient computation. This can improve stability in cases of highly
+#'   correlated traits or poorly conditioned matrices.
+#'
+#' @param debug Logical. If `TRUE`, the function prints progress and diagnostic
+#'   messages during execution. This is helpful for understanding what the
+#'   function is doing and for troubleshooting.
+#'
+#' @param return_all_reps Logical. If `TRUE`, the returned object includes the
+#'   full list of replicate-level optimization results. If `FALSE`, only the
+#'   summary corresponding to the best replicate is returned.
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{dg}{The desired-gain vector used in the analysis.}
+#'   \item{trait_min_sd}{The threshold vector used when
+#'     `select_mode = "trait_thresholds"`, otherwise `NULL`.}
+#'   \item{optimized_d}{The best sampled desired-gain vector from the winning
+#'     replicate.}
+#'   \item{optimized_b}{The optimized index coefficient vector from the winning
+#'     replicate.}
+#'   \item{realized_g}{The realized gains achieved by the selected subset in the
+#'     transformed trait space.}
+#'   \item{best_q}{The objective value of the best replicate. Lower values
+#'     indicate a closer match between realized and desired gains.}
+#'   \item{q_trace}{The iteration-wise objective values from the best replicate.}
+#'   \item{mean_replicate_cor}{Mean pairwise correlation among replicate index
+#'     vectors, used as a simple replicate-stability diagnostic.}
+#'   \item{best_replicate}{The index of the replicate with the best objective
+#'     value.}
+#'   \item{ranked_geno}{A `data.table` containing `init_data` plus the final
+#'     `SelectionIndex` and `Selected` columns, sorted by decreasing
+#'     `SelectionIndex`.}
+#'   \item{selection_summary}{A `data.table` summarizing mean trait values and
+#'     realized gains for all candidates versus the selected subset.}
+#'   \item{selected_geno}{Subset of `ranked_geno` with `Selected == TRUE`.}
+#'   \item{non_selected_geno}{Subset of `ranked_geno` with `Selected == FALSE`.}
+#'   \item{all_reps}{Optional list of all replicate results when
+#'     `return_all_reps = TRUE`.}
+#' }
+#'
+#' @examples
+#' trait_cols <- c("YLD", "MY", "MI", "BL", "NBL", "VHB")
+#'
+#' dg <- c(
+#'   YLD = 1.5,
+#'   MY  = 0.5,
+#'   MI  = 0.5,
+#'   BL  = 1.0,
+#'   NBL = 1.0,
+#'   VHB = 1.0
+#' )
+#'
+#' trait_min_sd <- c(
+#'   YLD = 0.2,
+#'   MY  = 0.1,
+#'   MI  = 0.1,
+#'   BL  = 0.1,
+#'   NBL = 0.1,
+#'   VHB = 0.1
+#' )
+#'
+#' ext <- system.file("extdata", package = "DGQGSI")
+#' pheno <- data.table::fread(file.path(ext, "example_pheno.csv"))
+#'
+#' res <- run_desired_gain_index_Joukhadar2024(
+#'   init_data = pheno[, .(GenoID, Family)],
+#'   cand_data = pheno[, c("GenoID", trait_cols), with = FALSE],
+#'   ref_data = pheno[, c("GenoID", trait_cols), with = FALSE],
+#'   trait_cols = trait_cols,
+#'   dg = dg,
+#'   lower_is_better = c("BL", "NBL", "VHB"),
+#'   select_mode = "trait_thresholds",
+#'   trait_min_sd = trait_min_sd,
+#'   scale_traits = FALSE,
+#'   debug = FALSE
+#' )
+#'
+#' head(res$ranked_geno)
+#' res$selection_summary
+#'
+#' @references
+#' Joukhadar R, Li Y, Thistlethwaite R, Forrest KL, Tibbits JF, Trethowan R,
+#' Hayden MJ (2024). Optimising desired gain indices to maximise selection
+#' response. \emph{Frontiers in Plant Science}, 15:1337388.
+#' doi:10.3389/fpls.2024.1337388
 #'
 #' @import data.table
 #' @export
+#' 
 run_desired_gain_index_Joukhadar2024 <- function(
     init_data,
     cand_data,

@@ -1,31 +1,205 @@
 #' Construct a quadratic desired-gain matrix `W_d` automatically for QGSI
 #'
 #' @description
-#' Builds a symmetric quadratic desired-gain matrix for the desired-gain QGSI formulation
-#' \deqn{QGSI\_DG_i = d' \hat{\gamma}_i + \hat{\gamma}_i' W_d \hat{\gamma}_i.}
+#' Builds a symmetric quadratic desired-gain matrix for the desired-gain QGSI
+#' formulation:
+#' \deqn{QGSI\_DG_i = d' \hat{\gamma}_i + \hat{\gamma}_i' W_d \hat{\gamma}_i}
+#'
+#' This helper function provides a flexible way to construct the quadratic matrix
+#' `W_d` from a desired-gain vector and the observed trait relationships in a
+#' GEBV dataset.
+#'
+#' @details
+#' The matrix `W_d` governs the quadratic part of the desired-gain QGSI. It can
+#' be interpreted as controlling how strongly:
+#' \itemize{
+#'   \item squared trait effects contribute to the index,
+#'   \item pairwise trait interactions contribute to the index,
+#'   \item correlation structure among traits influences the quadratic term.
+#' }
+#'
+#' The function supports four strategies for constructing `W_d`:
+#' \describe{
+#'   \item{`"diag_only"`}{Builds a purely diagonal matrix, so the quadratic term
+#'   contains only squared trait effects and no cross-trait interactions.}
+#'
+#'   \item{`"dg_outer"`}{Uses the outer product of the desired-gain vector,
+#'   \eqn{d d'}, to construct `W_d`. This introduces pairwise interaction terms
+#'   based only on desired gains.}
+#'
+#'   \item{`"corr_weighted"`}{Constructs `W_d` by weighting the desired-gain
+#'   outer product by the empirical trait correlation matrix derived from the
+#'   transformed GEBV data. This allows the quadratic matrix to reflect observed
+#'   relationships among traits.}
+#'
+#'   \item{`"hybrid"`}{Combines a diagonal component, an outer-product component,
+#'   and a correlation-weighted component. This is the most flexible option and
+#'   is generally a good default when both squared effects and trait
+#'   interactions are of interest.}
+#' }
+#'
+#' The construction workflow is:
+#' \enumerate{
+#'   \item convert selected GEBV columns to numeric;
+#'   \item optionally impute missing values;
+#'   \item optionally flip traits in `lower_is_better`;
+#'   \item optionally center and/or scale the GEBV matrix;
+#'   \item compute a trait correlation matrix from the transformed GEBV matrix;
+#'   \item construct the diagonal, outer-product, and correlation-weighted
+#'         components;
+#'   \item combine these components according to `method` and the lambda weights;
+#'   \item optionally shrink off-diagonal terms;
+#'   \item enforce symmetry and optional diagonal positivity;
+#'   \item optionally normalize the final matrix.
+#' }
+#'
+#' If trait GEBVs are already centered and scaled, you may wish to use:
+#' \itemize{
+#'   \item `center_traits = FALSE`
+#'   \item `scale_traits = FALSE`
+#' }
+#'
+#' The returned `W_d` can then be passed directly to
+#' [run_qgsi_desired_gain()].
 #'
 #' @param gebv_data A `data.frame` or `data.table` containing trait GEBVs.
-#' @param trait_cols Character vector of trait columns.
-#' @param dg Named numeric desired-gain vector.
-#' @param lower_is_better Optional traits where lower values are preferred.
-#' @param center_traits Logical; if `TRUE`, center GEBVs before deriving trait relationships.
-#' @param scale_traits Logical; if `TRUE`, scale GEBVs before deriving trait relationships.
-#' @param impute_missing Logical; if `TRUE`, impute missing values by trait mean.
-#' @param method One of `"hybrid"`, `"diag_only"`, `"dg_outer"`, or `"corr_weighted"`.
-#' @param base_diag Optional named baseline diagonal weights.
-#' @param lambda_diag Numeric weight for the diagonal component.
-#' @param lambda_outer Numeric weight for the desired-gain outer-product component.
-#' @param lambda_corr Numeric weight for the correlation-weighted component.
-#' @param corr_power Numeric exponent applied to absolute correlations.
-#' @param offdiag_shrink Numeric shrinkage factor for off-diagonal terms.
-#' @param positive_diagonal_only Logical; if `TRUE`, force non-negative diagonals.
-#' @param normalize One of `"trace"`, `"max_abs"`, or `"none"`.
-#' @param debug Logical; if `TRUE`, print debug messages.
+#'   Each row should represent one genotype, and the columns listed in
+#'   `trait_cols` should contain numeric or coercible-to-numeric trait GEBVs.
 #'
-#' @return A list containing `W_d` and its construction components.
+#' @param trait_cols Character vector giving the names of the trait columns to
+#'   use when constructing `W_d`. These columns must exist in `gebv_data`.
+#'   Their order determines the order used in the returned matrix.
+#'
+#' @param dg Named numeric desired-gain vector, with names matching
+#'   `trait_cols`. These desired gains are used to build the outer-product and
+#'   correlation-weighted components of `W_d`, and to define default diagonal
+#'   weights when `base_diag = NULL`.
+#'
+#' @param lower_is_better Optional character vector of trait names for which
+#'   smaller values are favorable. These traits are internally multiplied by
+#'   `-1` so that all traits are oriented in a common favorable direction before
+#'   correlations and matrix components are computed.
+#'
+#' @param center_traits Logical. If `TRUE`, center the selected GEBV columns by
+#'   subtracting their means before deriving trait relationships. This is useful
+#'   when trait GEBVs are not already centered around zero.
+#'
+#' @param scale_traits Logical. If `TRUE`, divide each selected trait column by
+#'   its standard deviation after optional centering. This is useful when traits
+#'   are on different scales and you want the correlation structure to be based
+#'   on standardized variables.
+#'
+#' @param impute_missing Logical. If `TRUE`, missing values are imputed by the
+#'   mean of the corresponding trait column. If `FALSE`, the function stops with
+#'   an error if missing values are present in the selected trait columns.
+#'
+#' @param method Character string specifying how `W_d` should be constructed.
+#'   One of:
+#'   \itemize{
+#'     \item `"hybrid"`
+#'     \item `"diag_only"`
+#'     \item `"dg_outer"`
+#'     \item `"corr_weighted"`
+#'   }
+#'
+#' @param base_diag Optional named numeric vector giving baseline diagonal
+#'   weights. Names must match `trait_cols`. If `NULL`, the function uses
+#'   `abs(dg)` as the default diagonal weights.
+#'
+#' @param lambda_diag Numeric multiplier applied to the diagonal component of
+#'   `W_d`. Larger values increase the contribution of squared trait effects.
+#'
+#' @param lambda_outer Numeric multiplier applied to the desired-gain outer
+#'   product component. Larger values increase the contribution of pairwise trait
+#'   interactions implied by the desired-gain vector alone.
+#'
+#' @param lambda_corr Numeric multiplier applied to the correlation-weighted
+#'   component. Larger values increase the influence of the empirical trait
+#'   correlation structure on `W_d`.
+#'
+#' @param corr_power Numeric exponent applied to the absolute trait correlations
+#'   before building the correlation-weighted component. Values greater than `1`
+#'   emphasize strong correlations more heavily; values between `0` and `1`
+#'   reduce contrast among correlation magnitudes.
+#'
+#' @param offdiag_shrink Numeric shrinkage factor applied to off-diagonal
+#'   elements of `W_d`. Must be between `0` and `1`. A value of `1` leaves
+#'   off-diagonal elements unchanged; smaller values weaken cross-trait
+#'   interaction terms.
+#'
+#' @param positive_diagonal_only Logical. If `TRUE`, negative diagonal entries
+#'   are replaced by zero after construction. This ensures non-negative diagonal
+#'   contributions in the final matrix.
+#'
+#' @param normalize Character string controlling normalization of the final
+#'   matrix. One of:
+#'   \itemize{
+#'     \item `"trace"`: divide `W_d` by the sum of absolute diagonal values;
+#'     \item `"max_abs"`: divide `W_d` by its maximum absolute entry;
+#'     \item `"none"`: do not normalize.
+#'   }
+#'
+#' @param debug Logical. If `TRUE`, print progress and diagnostic messages during
+#'   matrix construction.
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{W_d}{The final symmetric quadratic desired-gain matrix.}
+#'   \item{trait_matrix_used}{A `data.table` containing the transformed GEBV
+#'     matrix actually used to derive trait relationships after optional
+#'     imputation, direction flipping, centering, and scaling.}
+#'   \item{cor_matrix}{The empirical trait correlation matrix computed from the
+#'     transformed GEBV matrix.}
+#'   \item{diag_component}{The diagonal component used in constructing `W_d`.}
+#'   \item{outer_component}{The desired-gain outer-product component.}
+#'   \item{corr_component}{The correlation-weighted component.}
+#'   \item{method}{The construction method used.}
+#' }
+#'
+#' @examples
+#' trait_cols <- c("YLD", "MY", "MI", "BL", "NBL", "VHB")
+#'
+#' dg <- c(
+#'   YLD = 1.5,
+#'   MY  = 0.5,
+#'   MI  = 0.5,
+#'   BL  = 1.0,
+#'   NBL = 1.0,
+#'   VHB = 1.0
+#' )
+#'
+#' ext <- system.file("extdata", package = "DGQGSI")
+#' gebv <- data.table::fread(file.path(ext, "example_gebv.csv"))
+#'
+#' Wobj <- construct_Wd_from_dg(
+#'   gebv_data = gebv[, c("GenoID", trait_cols), with = FALSE],
+#'   trait_cols = trait_cols,
+#'   dg = dg,
+#'   lower_is_better = c("BL", "NBL", "VHB"),
+#'   center_traits = FALSE,
+#'   scale_traits = FALSE,
+#'   method = "hybrid",
+#'   lambda_diag = 1.0,
+#'   lambda_outer = 0.5,
+#'   lambda_corr = 1.0,
+#'   corr_power = 1,
+#'   offdiag_shrink = 0.5,
+#'   normalize = "trace",
+#'   debug = FALSE
+#' )
+#'
+#' Wobj$W_d
+#' Wobj$cor_matrix
+#'
+#' @references
+#' Cerón-Rojas JJ, Montesinos-López OA, Montesinos-López A, et al. (2026).
+#' Nonlinear genomic selection index accelerates multi-trait crop improvement.
+#' \emph{Nature Communications}, 17:1991.
+#' doi:10.1038/s41467-026-69890-3
 #'
 #' @import data.table
 #' @export
+#' 
 construct_Wd_from_dg <- function(
     gebv_data,
     trait_cols,

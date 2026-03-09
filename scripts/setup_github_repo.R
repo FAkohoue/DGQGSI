@@ -29,6 +29,11 @@ library(devtools)
 devtools::document()
 devtools::check()
 
+unlink("NAMESPACE")
+devtools::document()
+devtools::document()
+devtools::check()
+
 # ------------------------------------------------------------------
 # 4) Initialize git and make first commit
 # ------------------------------------------------------------------
