@@ -26,10 +26,7 @@ library(devtools)
 # ------------------------------------------------------------------
 # 3) Regenerate docs and check package
 # ------------------------------------------------------------------
-devtools::document()
-devtools::check()
-
-unlink("NAMESPACE")
+#unlink("NAMESPACE")
 devtools::document()
 devtools::document()
 devtools::check()
