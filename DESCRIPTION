@@ -2,26 +2,29 @@ Package: DGQGSI
 Type: Package
 Title: Desired-Gain Selection Index and Desired-Gain QGSI Tools
 Version: 0.1.0
-Authors@R: person(given = "Felicien", family = "Akohoue", email = "akohoue.f@gmail.com", role = c("aut", "cre"))
-Description: Tools to compute desired-gain selection indices, desired-gain adapted
-    quadratic genomic selection indices, automatic quadratic matrix
+Authors@R: 
+    person(
+      given = "Félicien",
+      family = "Akohoue",
+      email = "akohoue.f@gmail.com",
+      role = c("aut", "cre")
+    )
+Description: Tools to compute desired-gain selection indices, desired-gain
+    adapted quadratic genomic selection indices, automatic quadratic matrix
     construction, wrapper workflows, and comparison tables for breeding data.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     data.table,
-    stats,
-    utils
+    stats
 Suggests:
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
-VignetteBuilder:
-    knitr
+VignetteBuilder: knitr
 URL: https://github.com/FAkohoue/DGQGSI,
-     https://FAkohoue.github.io/DGQGSI/
+    https://fakohoue.github.io/DGQGSI/
 BugReports: https://github.com/FAkohoue/DGQGSI/issues

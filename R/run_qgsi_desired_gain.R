@@ -44,31 +44,54 @@ run_qgsi_desired_gain <- function(
     return_components = TRUE,
     debug = TRUE
 ) {
+  .dgqgsi_dbg(debug, "============================================================")
+  .dgqgsi_dbg(debug, "Starting run_qgsi_desired_gain()")
+  .dgqgsi_dbg(debug, "Traits: %s", paste(trait_cols, collapse = ", "))
+  .dgqgsi_dbg(debug, "center_traits = %s | scale_traits = %s", center_traits, scale_traits)
+  
   dt_init <- data.table::as.data.table(data.table::copy(init_data))
   dt_gebv <- data.table::as.data.table(data.table::copy(gebv_data))
-  if (!id_col %in% names(dt_init)) stop(sprintf("id_col '%s' not found in init_data.", id_col), call. = FALSE)
-  if (!id_col %in% names(dt_gebv)) stop(sprintf("id_col '%s' not found in gebv_data.", id_col), call. = FALSE)
+  
+  if (!id_col %in% names(dt_init)) {
+    stop(sprintf("id_col '%s' not found in init_data.", id_col), call. = FALSE)
+  }
+  if (!id_col %in% names(dt_gebv)) {
+    stop(sprintf("id_col '%s' not found in gebv_data.", id_col), call. = FALSE)
+  }
   if (!all(trait_cols %in% names(dt_gebv))) {
     miss <- setdiff(trait_cols, names(dt_gebv))
     stop("Missing trait columns in gebv_data: ", paste(miss, collapse = ", "), call. = FALSE)
   }
-
+  
   common_ids <- intersect(dt_init[[id_col]], dt_gebv[[id_col]])
-  if (length(common_ids) == 0L) stop("No common IDs between init_data and gebv_data.", call. = FALSE)
+  if (length(common_ids) == 0L) {
+    stop("No common IDs between init_data and gebv_data.", call. = FALSE)
+  }
+  
   dt_init <- dt_init[get(id_col) %in% common_ids]
   dt_gebv <- dt_gebv[get(id_col) %in% common_ids]
   data.table::setkeyv(dt_init, id_col)
   data.table::setkeyv(dt_gebv, id_col)
   dt_init <- dt_init[dt_gebv[[id_col]]]
-  if (!identical(dt_init[[id_col]], dt_gebv[[id_col]])) stop("Alignment failed between init_data and gebv_data.", call. = FALSE)
-
-  for (tr in trait_cols) dt_gebv[, (tr) := as.numeric(get(tr))]
+  
+  if (!identical(dt_init[[id_col]], dt_gebv[[id_col]])) {
+    stop("Alignment failed between init_data and gebv_data.", call. = FALSE)
+  }
+  
+  for (tr in trait_cols) {
+    dt_gebv[, (tr) := as.numeric(get(tr))]
+  }
+  
   if (isTRUE(impute_missing)) {
-    for (tr in trait_cols) if (anyNA(dt_gebv[[tr]])) dt_gebv[is.na(get(tr)), (tr) := mean(dt_gebv[[tr]], na.rm = TRUE)]
-  } else if (anyNA(as.matrix(dt_gebv[, ..trait_cols]))) {
+    for (tr in trait_cols) {
+      if (anyNA(dt_gebv[[tr]])) {
+        dt_gebv[is.na(get(tr)), (tr) := mean(dt_gebv[[tr]], na.rm = TRUE)]
+      }
+    }
+  } else if (anyNA(as.matrix(dt_gebv[, trait_cols, with = FALSE]))) {
     stop("Missing values detected in gebv_data while impute_missing = FALSE.", call. = FALSE)
   }
-
+  
   if (!is.null(lower_is_better)) {
     if (!all(lower_is_better %in% trait_cols)) {
       bad <- setdiff(lower_is_better, trait_cols)
@@ -76,30 +99,40 @@ run_qgsi_desired_gain <- function(
     }
     dt_gebv[, (lower_is_better) := lapply(.SD, function(x) -x), .SDcols = lower_is_better]
   }
-
-  gebv_mat <- as.matrix(dt_gebv[, ..trait_cols])
-  if (isTRUE(center_traits)) gebv_mat <- sweep(gebv_mat, 2, colMeans(gebv_mat), FUN = "-")
+  
+  gebv_mat <- as.matrix(dt_gebv[, trait_cols, with = FALSE])
+  
+  if (isTRUE(center_traits)) {
+    gebv_mat <- sweep(gebv_mat, 2, colMeans(gebv_mat), FUN = "-")
+  }
+  
   if (isTRUE(scale_traits)) {
     sds <- apply(gebv_mat, 2, stats::sd)
     bad_sd <- !is.finite(sds) | sds == 0
     sds[bad_sd] <- 1
     gebv_mat <- sweep(gebv_mat, 2, sds, FUN = "/")
   }
+  
   colnames(gebv_mat) <- trait_cols
-
+  
   dg <- dg[trait_cols]
-  if (anyNA(dg)) stop("dg missing for traits: ", paste(trait_cols[is.na(dg)], collapse = ", "), call. = FALSE)
+  if (anyNA(dg)) {
+    stop("dg missing for traits: ", paste(trait_cols[is.na(dg)], collapse = ", "), call. = FALSE)
+  }
   dg <- as.numeric(dg)
   names(dg) <- trait_cols
-
+  
   p <- length(trait_cols)
+  
   if (is.null(W_d)) {
     if (is.null(quadratic_diag_weights)) {
       quadratic_diag_weights <- rep(1, p)
       names(quadratic_diag_weights) <- trait_cols
     } else {
       quadratic_diag_weights <- quadratic_diag_weights[trait_cols]
-      if (anyNA(quadratic_diag_weights)) stop("quadratic_diag_weights missing for traits.", call. = FALSE)
+      if (anyNA(quadratic_diag_weights)) {
+        stop("quadratic_diag_weights missing for traits.", call. = FALSE)
+      }
       quadratic_diag_weights <- as.numeric(quadratic_diag_weights)
       names(quadratic_diag_weights) <- trait_cols
     }
@@ -110,27 +143,31 @@ run_qgsi_desired_gain <- function(
     W_d <- 0.5 * (W_d + t(W_d))
     rownames(W_d) <- colnames(W_d) <- trait_cols
   }
-
+  
   linear_part <- as.numeric(gebv_mat %*% dg)
   quadratic_part <- apply(gebv_mat, 1, function(x) {
     x <- matrix(x, ncol = 1)
     as.numeric(t(x) %*% W_d %*% x)
   })
   qgsi_dg <- linear_part + quadratic_part
-
+  
   dt_out <- data.table::copy(dt_init)
+  
   if (isTRUE(return_components)) {
     dt_out[, LinearDGPart := linear_part]
     dt_out[, QuadraticDGPart := quadratic_part]
   }
+  
   dt_out[, QGSI_DG := qgsi_dg]
   dt_out[, Rank_QGSI_DG := data.table::frank(-QGSI_DG, ties.method = "average")]
+  
   if (isTRUE(return_components)) {
     dt_out[, Rank_LinearDGPart := data.table::frank(-LinearDGPart, ties.method = "average")]
     dt_out[, Rank_QuadraticDGPart := data.table::frank(-QuadraticDGPart, ties.method = "average")]
   }
+  
   data.table::setorder(dt_out, -QGSI_DG)
-
+  
   if (isTRUE(return_components)) {
     component_summary <- data.table::data.table(
       Component = c("LinearDGPart", "QuadraticDGPart", "QGSI_DG"),
@@ -142,10 +179,13 @@ run_qgsi_desired_gain <- function(
   } else {
     component_summary <- data.table::data.table(
       Component = "QGSI_DG",
-      Mean = mean(qgsi_dg), SD = stats::sd(qgsi_dg), Min = min(qgsi_dg), Max = max(qgsi_dg)
+      Mean = mean(qgsi_dg),
+      SD = stats::sd(qgsi_dg),
+      Min = min(qgsi_dg),
+      Max = max(qgsi_dg)
     )
   }
-
+  
   list(
     dg = dg,
     W_d = W_d,

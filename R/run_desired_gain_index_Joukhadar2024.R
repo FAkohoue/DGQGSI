@@ -69,23 +69,23 @@ run_desired_gain_index_Joukhadar2024 <- function(
     return_all_reps = TRUE
 ) {
   select_mode <- match.arg(select_mode)
-
+  
   .dgqgsi_dbg(debug, "============================================================")
   .dgqgsi_dbg(debug, "Starting run_desired_gain_index_Joukhadar2024()")
   .dgqgsi_dbg(debug, "Selection mode: %s", select_mode)
   .dgqgsi_dbg(debug, "Number of traits: %d", length(trait_cols))
   .dgqgsi_dbg(debug, "Number of replicates: %d | Iterations per replicate: %d", n_rep, n_iter)
   .dgqgsi_dbg(debug, "scale_traits = %s | id_col = %s", scale_traits, id_col)
-
+  
   dt_init <- data.table::as.data.table(data.table::copy(init_data))
   dt_cand <- data.table::as.data.table(data.table::copy(cand_data))
-
+  
   if (is.null(ref_data)) {
     .dgqgsi_dbg(debug, "ref_data is NULL -> using cand_data as reference")
     ref_data <- cand_data
   }
   dt_ref <- data.table::as.data.table(data.table::copy(ref_data))
-
+  
   if (!id_col %in% names(dt_init)) stop(sprintf("id_col '%s' not found in init_data.", id_col), call. = FALSE)
   if (!id_col %in% names(dt_cand)) stop(sprintf("id_col '%s' not found in cand_data.", id_col), call. = FALSE)
   if (!all(trait_cols %in% names(dt_cand))) {
@@ -96,24 +96,25 @@ run_desired_gain_index_Joukhadar2024 <- function(
     miss <- setdiff(trait_cols, names(dt_ref))
     stop("Missing trait columns in ref_data: ", paste(miss, collapse = ", "), call. = FALSE)
   }
-
+  
   common_ids <- intersect(dt_init[[id_col]], dt_cand[[id_col]])
   if (length(common_ids) == 0L) stop("No common IDs found between init_data and cand_data.", call. = FALSE)
-
+  
   dt_init <- dt_init[get(id_col) %in% common_ids]
   dt_cand <- dt_cand[get(id_col) %in% common_ids]
   data.table::setkeyv(dt_init, id_col)
   data.table::setkeyv(dt_cand, id_col)
   dt_init <- dt_init[dt_cand[[id_col]]]
+  
   if (!identical(dt_init[[id_col]], dt_cand[[id_col]])) {
     stop("Row alignment failed: init_data and cand_data IDs are not in identical order after alignment.", call. = FALSE)
   }
-
+  
   for (tr in trait_cols) {
     dt_cand[, (tr) := as.numeric(get(tr))]
     dt_ref[,  (tr) := as.numeric(get(tr))]
   }
-
+  
   for (tr in trait_cols) {
     if (anyNA(dt_cand[[tr]])) {
       mu_tr <- mean(dt_cand[[tr]], na.rm = TRUE)
@@ -124,7 +125,7 @@ run_desired_gain_index_Joukhadar2024 <- function(
       dt_ref[is.na(get(tr)), (tr) := mu_tr]
     }
   }
-
+  
   if (!is.null(lower_is_better)) {
     if (!all(lower_is_better %in% trait_cols)) {
       bad <- setdiff(lower_is_better, trait_cols)
@@ -133,36 +134,36 @@ run_desired_gain_index_Joukhadar2024 <- function(
     dt_cand[, (lower_is_better) := lapply(.SD, function(x) -x), .SDcols = lower_is_better]
     dt_ref[,  (lower_is_better) := lapply(.SD, function(x) -x), .SDcols = lower_is_better]
   }
-
+  
   if (isTRUE(scale_traits)) {
-    ref_mat0 <- as.matrix(dt_ref[, ..trait_cols])
+    ref_mat0 <- as.matrix(dt_ref[, trait_cols, with = FALSE])
     mu_ref <- colMeans(ref_mat0)
     sd_ref <- apply(ref_mat0, 2, stats::sd)
     bad_sd <- !is.finite(sd_ref) | sd_ref == 0
     sd_ref[bad_sd] <- 1
-
+    
     scale_with_ref <- function(dt, trait_cols, mu_ref, sd_ref) {
-      m <- as.matrix(dt[, ..trait_cols])
+      m <- as.matrix(dt[, trait_cols, with = FALSE])
       m <- sweep(m, 2, mu_ref, FUN = "-")
       m <- sweep(m, 2, sd_ref, FUN = "/")
       out <- data.table::copy(dt)
       out[, (trait_cols) := data.table::as.data.table(m)]
       out
     }
-
+    
     dt_cand <- scale_with_ref(dt_cand, trait_cols, mu_ref, sd_ref)
     dt_ref  <- scale_with_ref(dt_ref, trait_cols, mu_ref, sd_ref)
   }
-
-  cand_mat <- as.matrix(dt_cand[, ..trait_cols])
-  ref_mat  <- as.matrix(dt_ref[, ..trait_cols])
+  
+  cand_mat <- as.matrix(dt_cand[, trait_cols, with = FALSE])
+  ref_mat  <- as.matrix(dt_ref[, trait_cols, with = FALSE])
   p <- length(trait_cols)
-
+  
   dg <- dg[trait_cols]
   if (anyNA(dg)) stop("dg missing for: ", paste(trait_cols[is.na(dg)], collapse = ", "), call. = FALSE)
   dg <- as.numeric(dg)
   names(dg) <- trait_cols
-
+  
   if (select_mode == "trait_thresholds") {
     if (is.null(trait_min_sd)) stop("trait_min_sd must be provided when select_mode = 'trait_thresholds'.", call. = FALSE)
     trait_min_sd <- trait_min_sd[trait_cols]
@@ -170,16 +171,16 @@ run_desired_gain_index_Joukhadar2024 <- function(
     trait_min_sd <- as.numeric(trait_min_sd)
     names(trait_min_sd) <- trait_cols
   }
-
+  
   if (is.null(G)) G <- stats::cov(ref_mat)
   .validate_square_matrix(G, p, "G")
   colnames(G) <- rownames(G) <- trait_cols
-
+  
   P <- stats::cor(ref_mat, use = "pairwise.complete.obs")
   P <- 0.5 * (P + t(P))
   G <- 0.5 * (G + t(G))
   P_r <- P + diag(ridge_P, p)
-
+  
   compute_b <- function(d) {
     X <- solve(P_r, G)
     M <- t(G) %*% X
@@ -187,7 +188,7 @@ run_desired_gain_index_Joukhadar2024 <- function(
     y <- solve(M, matrix(d, ncol = 1))
     as.numeric(X %*% y)
   }
-
+  
   select_rows <- function(idx_vec) {
     if (select_mode == "top_n") {
       ord <- order(idx_vec, decreasing = TRUE)
@@ -203,7 +204,7 @@ run_desired_gain_index_Joukhadar2024 <- function(
     }
     keep
   }
-
+  
   realized_g <- function(b) {
     idx <- as.numeric(cand_mat %*% b)
     keep <- select_rows(idx)
@@ -216,7 +217,7 @@ run_desired_gain_index_Joukhadar2024 <- function(
     names(rg) <- trait_cols
     rg
   }
-
+  
   gof_one <- function(g_i, dg_i) {
     eps <- 1e-12
     if (sign(g_i) != sign(dg_i)) return(0)
@@ -224,28 +225,35 @@ run_desired_gain_index_Joukhadar2024 <- function(
     r <- (base^2) / max(abs(g_i), eps)
     log(r, base = base) / r
   }
-
+  
   q_value <- function(g_vec) {
     gof_i <- mapply(gof_one, g_vec, dg)
     gofMAX_i <- mapply(gof_one, dg, dg)
     gofMAX_i[gofMAX_i == 0] <- 1e-12
     sum((gofMAX_i - gof_i) / gofMAX_i)
   }
-
+  
   summarize_selection <- function(cand_mat, keep, trait_cols) {
     sel_mat <- cand_mat[keep, , drop = FALSE]
-    out <- data.table::data.table(
+    
+    mean_all <- colMeans(cand_mat)
+    mean_sel <- colMeans(sel_mat)
+    sd_all <- apply(cand_mat, 2, stats::sd)
+    sd_sel <- apply(sel_mat, 2, stats::sd)
+    
+    realized <- (mean_sel - mean_all) / sd_all
+    realized[!is.finite(sd_all) | sd_all == 0] <- NA_real_
+    
+    data.table::data.table(
       Trait = trait_cols,
-      Mean_All = colMeans(cand_mat),
-      Mean_Selected = colMeans(sel_mat),
-      SD_All = apply(cand_mat, 2, stats::sd),
-      SD_Selected = apply(sel_mat, 2, stats::sd),
-      Realized_Gain_SD = (colMeans(sel_mat) - colMeans(cand_mat)) / apply(cand_mat, 2, stats::sd)
+      Mean_All = mean_all,
+      Mean_Selected = mean_sel,
+      SD_All = sd_all,
+      SD_Selected = sd_sel,
+      Realized_Gain_SD = realized
     )
-    out[!is.finite(SD_All) | SD_All == 0, Realized_Gain_SD := NA_real_]
-    out
   }
-
+  
   set.seed(seed)
   reps <- vector("list", n_rep)
   for (rr in seq_len(n_rep)) {
@@ -255,14 +263,14 @@ run_desired_gain_index_Joukhadar2024 <- function(
     best_b <- rep(NA_real_, p)
     best_g <- rep(NA_real_, p)
     q_trace <- numeric(n_iter)
-
+    
     for (it in seq_len(n_iter)) {
       d_samp <- vapply(seq_len(p), function(i) {
         sd_i <- sd_scale * abs(mu[i])
         if (!is.finite(sd_i) || sd_i <= 0) sd_i <- 1e-8
         stats::rnorm(1, mean = mu[i], sd = sd_i)
       }, numeric(1))
-
+      
       b <- compute_b(d_samp)
       g <- realized_g(b)
       q <- q_value(g)
@@ -275,14 +283,14 @@ run_desired_gain_index_Joukhadar2024 <- function(
         mu <- d_samp
       }
     }
-
+    
     names(best_d) <- trait_cols
     names(best_b) <- trait_cols
     names(best_g) <- trait_cols
     final_index <- as.numeric(cand_mat %*% best_b)
     keep <- select_rows(final_index)
     ord <- order(final_index, decreasing = TRUE)
-
+    
     reps[[rr]] <- list(
       replicate = rr,
       best_q = best_q,
@@ -295,26 +303,26 @@ run_desired_gain_index_Joukhadar2024 <- function(
       q_trace = q_trace
     )
   }
-
+  
   all_index <- do.call(cbind, lapply(reps, `[[`, "index"))
   mean_replicate_cor <- if (ncol(all_index) > 1L) {
     cc <- stats::cor(all_index, use = "pairwise.complete.obs")
     mean(cc[upper.tri(cc)])
   } else NA_real_
-
+  
   best_rep <- which.min(vapply(reps, `[[`, numeric(1), "best_q"))
   best <- reps[[best_rep]]
-
+  
   dt_out <- data.table::copy(dt_init)
   dt_out[, SelectionIndex := best$index]
   dt_out[, Selected := FALSE]
   dt_out[best$keep, Selected := TRUE]
   data.table::setorder(dt_out, -SelectionIndex)
-
+  
   selected_geno <- dt_out[Selected == TRUE]
   non_selected_geno <- dt_out[Selected == FALSE]
   selection_summary <- summarize_selection(cand_mat, best$keep, trait_cols)
-
+  
   out <- list(
     dg = dg,
     trait_min_sd = if (select_mode == "trait_thresholds") trait_min_sd else NULL,
