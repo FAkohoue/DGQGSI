@@ -26,8 +26,8 @@ library(devtools)
 # ------------------------------------------------------------------
 # 3) Regenerate docs and check package
 # ------------------------------------------------------------------
-document()
-check()
+devtools::document()
+devtools::check()
 
 # ------------------------------------------------------------------
 # 4) Initialize git and make first commit
