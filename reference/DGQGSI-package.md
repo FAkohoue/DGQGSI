@@ -18,10 +18,10 @@ Useful links:
 
 - <https://github.com/FAkohoue/DGQGSI>
 
-- <https://FAkohoue.github.io/DGQGSI/>
+- <https://fakohoue.github.io/DGQGSI/>
 
 - Report bugs at <https://github.com/FAkohoue/DGQGSI/issues>
 
 ## Author
 
-**Maintainer**: Felicien Akohoue <akohoue.f@gmail.com>
+**Maintainer**: Félicien Akohoue <akohoue.f@gmail.com>

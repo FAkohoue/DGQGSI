@@ -2,8 +2,7 @@
 
 ## Authors
 
-- **[Felicien Akohoue](https://github.com/FAkohoue)**. Author,
-  maintainer.
+- **Félicien Akohoue**. Author, maintainer.
 
 ## Citation
 
@@ -16,7 +15,7 @@ QGSI Tools*. R package version 0.1.0,
 
     @Manual{,
       title = {DGQGSI: Desired-Gain Selection Index and Desired-Gain QGSI Tools},
-      author = {Felicien Akohoue},
+      author = {Félicien Akohoue},
       year = {2026},
       note = {R package version 0.1.0},
       url = {https://github.com/FAkohoue/DGQGSI},
