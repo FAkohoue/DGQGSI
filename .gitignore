@@ -18,7 +18,3 @@ Thumbs.db
 
 # Test coverage
 coverage/
-
-# pkgdown site (remove if deploying docs/ to GitHub Pages from main)
-docs/
-pkgdown/
