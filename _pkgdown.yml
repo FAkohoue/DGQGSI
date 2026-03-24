@@ -1,3 +1,5 @@
+url: https://FAkohoue.github.io/DGQGSI/
+
 template:
   bootstrap: 5
   bslib:
@@ -8,10 +10,8 @@ template:
     heading_font: {google: "Inter"}
     code_font: {google: "Fira Code"}
 
-url: https://FAkohoue.github.io/DGQGSI/
-
 authors:
-  Felicien Akohoue:
+  Félicien Akohoue:
     href: https://github.com/FAkohoue
 
 home:
@@ -21,12 +21,13 @@ home:
 navbar:
   bg: primary
   structure:
-    left: [home, reference, articles, news]
+    left: [home, reference, articles]
     right: [github]
   components:
     github:
       icon: fa-github
       href: https://github.com/FAkohoue/DGQGSI
+      aria-label: GitHub repository
 
 reference:
   - title: Core workflows
@@ -38,6 +39,9 @@ reference:
     contents:
       - construct_Wd_from_dg
       - compare_dg_and_qgsi
+  - title: Package
+    contents:
+      - DGQGSI-package
 
 articles:
   - title: Get started

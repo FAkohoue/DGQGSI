@@ -19,7 +19,7 @@ Package providing tools for:
 Useful links:
 \itemize{
   \item \url{https://github.com/FAkohoue/DGQGSI}
-  \item \url{https://fakohoue.github.io/DGQGSI/}
+  \item \url{https://FAkohoue.github.io/DGQGSI/}
   \item Report bugs at \url{https://github.com/FAkohoue/DGQGSI/issues}
 }
 

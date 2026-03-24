@@ -1,18 +1,24 @@
+# R session artifacts
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
+
+# RStudio project files
 .Rproj.user/
-.Rproj.user
-*.Rproj
+
+# R package build artifacts
 .Rbuildignore
 .Rcheck/
-.Rcheck
 *.tar.gz
-*.RData
-*.Rhistory
+
+# OS artifacts
 .DS_Store
 Thumbs.db
-.Renviron
+
+# Test coverage
 coverage/
+
+# pkgdown site (remove if deploying docs/ to GitHub Pages from main)
 docs/
 pkgdown/

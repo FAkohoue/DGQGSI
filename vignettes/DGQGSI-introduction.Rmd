@@ -1,54 +1,471 @@
 ---
-title: "DGQGSI introduction"
+title: "DGQGSI Introduction"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{DGQGSI introduction}
+  %\VignetteIndexEntry{DGQGSI Introduction}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-library(DGQGSI)
-library(data.table)
 ```
 
-DGQGSI provides two complementary workflows:
+## Overview
 
-- a desired-gain selection index optimization function
-- a desired-gain adaptation of QGSI based on trait GEBVs
+`DGQGSI` provides tools for **multi-trait selection in plant breeding programs**
+using desired-gain–based selection indices. It integrates two complementary
+workflows:
+
+- **DGSI** — Desired-Gain Selection Index Optimization: estimates index weights
+  whose realized genetic gains closely match breeder-defined targets
+  (Joukhadar et al., 2024).
+- **QGSI** — Desired-Gain Quadratic Genomic Selection Index: a nonlinear index
+  that scores genotypes using both linear and quadratic GEBV components,
+  capturing trait interactions that a linear index would miss
+  (Cerón-Rojas et al., 2026).
+
+The key advantage of both methods is that breeders specify **desired genetic
+gains** directly — such as *"increase yield by 1.5 units while reducing disease
+score by 1 unit"* — rather than economic weights, which are rarely known with
+precision in practice.
+
+---
+
+## Methodological background
+
+### DGSI
+
+The DGSI finds a weight vector **b** such that the linear index
+
+$$I = \mathbf{b}^\top \mathbf{X}$$
+
+produces realized genetic gains **g** as close as possible to the breeder's
+desired gain vector **d**. The algorithm in
+`run_desired_gain_index_Joukhadar2024()`:
+
+1. Samples candidate desired-gain vectors in the neighbourhood of **d**.
+2. Computes index coefficients **b** for each candidate.
+3. Evaluates the realized gains **g** on the selected subset.
+4. Retains the coefficients that minimise the deviation between **g** and **d**.
+
+Because the search is stochastic, multiple independent replicates (`n_rep`) are
+run and the best solution across replicates is returned.
+
+### QGSI
+
+For genotype $i$ with GEBV vector $\boldsymbol{\gamma}_i$, the quadratic index
+is:
+
+$$\text{QGSI\_DG}_i = \mathbf{d}^\top \boldsymbol{\gamma}_i +
+\boldsymbol{\gamma}_i^\top \mathbf{W}_d \, \boldsymbol{\gamma}_i$$
+
+where **d** is the desired gain vector and $\mathbf{W}_d$ is the quadratic
+interaction matrix built automatically by `construct_Wd_from_dg()`. The
+**linear term** rewards GEBVs aligned with the desired direction; the
+**quadratic term** additionally rewards genotypes that combine favourable
+trait values simultaneously, capturing synergies and penalising trade-offs
+invisible to a linear index.
+
+---
 
 ## Example data
 
+The package ships with two built-in datasets. `example_pheno.csv` contains
+observed phenotypic means per genotype; `example_gebv.csv` contains genomic
+estimated breeding values (GEBVs) from a genomic prediction model.
+
+We work with six traits across two contrasting groups:
+
+| Trait | Description                      | Direction         |
+|-------|----------------------------------|-------------------|
+| YLD   | Grain yield                      | higher is better  |
+| MY    | Market yield                     | higher is better  |
+| MI    | Marketable index                 | higher is better  |
+| BL    | Bacterial leaf blight score      | lower is better   |
+| NBL   | Neck bacterial leaf blight score | lower is better   |
+| VHB   | Vascular hypersensitive blight   | lower is better   |
+
+The **desired gain vector** `dg` encodes the target improvement per selection
+cycle. For the three disease traits, the value represents the intended
+*reduction*; direction flipping is managed internally by the `lower_is_better`
+argument, so all values in `dg` are given as positive quantities regardless of
+the trait direction.
+
 ```{r}
-ext <- system.file("extdata", package = "DGQGSI")
+library(DGQGSI)
+library(data.table)
+
+ext   <- system.file("extdata", package = "DGQGSI")
 pheno <- fread(file.path(ext, "example_pheno.csv"))
 gebv  <- fread(file.path(ext, "example_gebv.csv"))
-traits <- c("YLD","MY","MI","BL","NBL","VHB")
-dg <- c(YLD=1.5, MY=0.5, MI=0.5, BL=1, NBL=1, VHB=1)
+
+traits <- c("YLD", "MY", "MI", "BL", "NBL", "VHB")
+
+dg <- c(YLD = 1.5, MY = 0.5, MI = 0.5, BL = 1, NBL = 1, VHB = 1)
 ```
 
+---
+
 ## Run the full pipeline
+
+`run_dgsi_qgsi_pipeline()` is the main entry point. Setting `mode = "both"`
+runs DGSI and QGSI in sequence and, with `merge_outputs = TRUE`, combines their
+genotype rankings into a single comparison table via `compare_dg_and_qgsi()`.
+
+Key arguments:
+
+| Argument             | Description                                                      |
+|----------------------|------------------------------------------------------------------|
+| `mode`               | `"dg"`, `"qgsi"`, or `"both"`                                   |
+| `init_data`          | Genotype IDs and metadata to preserve in output                  |
+| `cand_data`          | Candidate phenotypic trait values (DGSI input)                   |
+| `ref_data`           | Reference population for scaling and covariance estimation       |
+| `gebv_data`          | Genotype-level GEBVs (QGSI input)                                |
+| `trait_cols`         | Character vector of trait column names                           |
+| `dg`                 | Named numeric vector of desired gains                            |
+| `lower_is_better`    | Traits for which a smaller value is the breeding goal            |
+| `trait_min_sd`       | Per-trait minimum threshold for threshold-based selection        |
+| `n_iter`             | Optimisation iterations per DGSI replicate                       |
+| `n_rep`              | Number of independent DGSI replicates                            |
+| `dg_scale_traits`    | Whether to center and scale traits before DGSI                   |
+| `qgsi_center_traits` | Whether to center GEBVs before QGSI                              |
+| `qgsi_scale_traits`  | Whether to scale GEBVs before QGSI                               |
+| `merge_outputs`      | Whether to merge DGSI and QGSI rankings into one table           |
 
 ```{r}
 res <- run_dgsi_qgsi_pipeline(
   mode = "both",
-  init_data = pheno[, .(GenoID, Family)],
-  cand_data = pheno[, c("GenoID", traits), with = FALSE],
-  ref_data = pheno[, c("GenoID", traits), with = FALSE],
-  gebv_data = gebv,
+  init_data  = pheno[, .(GenoID, Family)],
+  cand_data  = pheno[, c("GenoID", traits), with = FALSE],
+  ref_data   = pheno[, c("GenoID", traits), with = FALSE],
+  gebv_data  = gebv,
   trait_cols = traits,
-  dg = dg,
+  dg         = dg,
   lower_is_better = c("BL", "NBL", "VHB"),
-  trait_min_sd = c(YLD=0.2, MY=0.1, MI=0.1, BL=0.1, NBL=0.1, VHB=0.1),
-  dg_scale_traits = FALSE,
+  trait_min_sd    = c(YLD = 0.2, MY = 0.1, MI = 0.1,
+                      BL  = 0.1, NBL = 0.1, VHB = 0.1),
+  dg_scale_traits    = FALSE,
   qgsi_center_traits = FALSE,
-  qgsi_scale_traits = FALSE,
-  n_iter = 50,
-  n_rep = 3,
+  qgsi_scale_traits  = FALSE,
+  n_iter        = 50,
+  n_rep         = 3,
   merge_outputs = TRUE,
-  debug = FALSE
+  debug         = FALSE
+)
+```
+
+The pipeline returns a named list. The components present depend on `mode`:
+
+- `res$dg_result` — full DGSI output from
+  `run_desired_gain_index_Joukhadar2024()`.
+- `res$W_d_result` — the automatically constructed $\mathbf{W}_d$ matrix
+  from `construct_Wd_from_dg()`.
+- `res$qgsi_result` — full QGSI output from `run_qgsi_desired_gain()`.
+- `res$comparison_result` — merged comparison table from
+  `compare_dg_and_qgsi()` (only when `mode = "both"` and
+  `merge_outputs = TRUE`).
+
+---
+
+## Exploring the results
+
+### The comparison table
+
+The merged comparison table is the primary output for side-by-side evaluation.
+It contains, per genotype: the DGSI score (`DG_SelectionIndex`), the DGSI
+selection flag (`DG_Selected`), the linear and quadratic QGSI components
+(`LinearDGPart`, `QuadraticDGPart`), the final QGSI score (`QGSI_DG`), the
+QGSI rank (`Rank_QGSI_DG`), and a sign-agreement flag (`SignSame_DG_QGSI`).
+
+```{r}
+comp <- res$comparison_result$comparison_table
+head(comp)
+```
+
+### Top candidates by DGSI
+
+Sorting by `DG_SelectionIndex` (descending) reveals the genotypes whose
+multi-trait phenotypic profile best matches the optimised linear index weights:
+
+```{r}
+head(comp[order(-DG_SelectionIndex)], 10)
+```
+
+### Top candidates by QGSI
+
+Sorting by `Rank_QGSI_DG` (ascending) highlights genotypes that combine
+favourable GEBVs across multiple traits simultaneously. The quadratic term
+rewards candidates that are good on several fronts at once:
+
+```{r}
+head(comp[order(Rank_QGSI_DG)], 10)
+```
+
+### Rank agreement between DGSI and QGSI
+
+A Spearman correlation between the DGSI score ranking and the QGSI rank
+summarises overall agreement across all candidates:
+
+```{r}
+cor_val <- cor(
+  rank(-comp$DG_SelectionIndex),
+  comp$Rank_QGSI_DG,
+  method = "spearman"
+)
+cat(sprintf("Spearman rank correlation (DGSI vs QGSI): %.3f\n", cor_val))
+```
+
+A high correlation indicates both methods largely agree on which genotypes to
+advance. When the correlation is lower, genotypes that score high on one method
+but not the other deserve closer inspection: they tend to have strong trait
+interactions that only the quadratic term captures.
+
+The Pearson and Spearman correlations computed by `compare_dg_and_qgsi()` are
+also available directly:
+
+```{r}
+res$comparison_result$correlation_summary
+```
+
+---
+
+## Inspecting individual workflow outputs
+
+### DGSI output
+
+The DGSI result contains several diagnostics beyond the ranked genotype table:
+
+```{r}
+# Optimised index coefficients
+res$dg_result$optimized_b
+
+# Realized gains in the transformed trait space
+res$dg_result$realized_g
+
+# Objective value of the best replicate (lower = better match to dg)
+res$dg_result$best_q
+
+# Mean pairwise correlation among replicate index vectors (stability check)
+res$dg_result$mean_replicate_cor
+
+# Trait-level summary: all candidates vs. selected subset
+res$dg_result$selection_summary
+```
+
+The `selection_summary` table reports the mean and SD for each trait in the
+full candidate set and in the selected subset, together with the realized gain
+expressed in SD units. Values above 0.9 for `mean_replicate_cor` indicate good
+agreement across replicates.
+
+### QGSI output
+
+The QGSI result separates the linear and quadratic components per genotype:
+
+```{r}
+head(res$qgsi_result$ranked_geno)
+```
+
+A component-level summary (mean, SD, range) is also available:
+
+```{r}
+res$qgsi_result$component_summary
+```
+
+---
+
+## Running each method separately
+
+Both workflows can also be called independently when finer control is needed.
+
+### DGSI only
+
+`run_desired_gain_index_Joukhadar2024()` supports two selection strategies via
+`select_mode`:
+
+- `"top_n"` — selects the `n_select` highest-ranking genotypes.
+- `"trait_thresholds"` — selects genotypes meeting minimum per-trait thresholds
+  (`trait_min_sd`), with optional fallback to top-N if no genotype passes.
+
+```{r, eval=FALSE}
+dgsi_res <- run_desired_gain_index_Joukhadar2024(
+  init_data       = pheno[, .(GenoID, Family)],
+  cand_data       = pheno[, c("GenoID", traits), with = FALSE],
+  ref_data        = pheno[, c("GenoID", traits), with = FALSE],
+  trait_cols      = traits,
+  dg              = dg,
+  lower_is_better = c("BL", "NBL", "VHB"),
+  select_mode     = "trait_thresholds",
+  trait_min_sd    = c(YLD = 0.2, MY = 0.1, MI = 0.1,
+                      BL  = 0.1, NBL = 0.1, VHB = 0.1),
+  scale_traits    = FALSE,
+  n_iter          = 200,
+  n_rep           = 10,
+  debug           = FALSE
 )
 
-head(res$comparison_result$comparison_table)
+head(dgsi_res$ranked_geno)
+dgsi_res$selection_summary
 ```
+
+### QGSI only
+
+`run_qgsi_desired_gain()` requires GEBVs and a desired-gain vector. A full
+$\mathbf{W}_d$ matrix can be supplied via `W_d`; otherwise a diagonal matrix
+is built from `quadratic_diag_weights`, which captures only squared trait
+effects without cross-trait interactions.
+
+```{r, eval=FALSE}
+qgsi_res <- run_qgsi_desired_gain(
+  init_data         = pheno[, .(GenoID, Family)],
+  gebv_data         = gebv[, c("GenoID", traits), with = FALSE],
+  trait_cols        = traits,
+  dg                = dg,
+  lower_is_better   = c("BL", "NBL", "VHB"),
+  center_traits     = FALSE,
+  scale_traits      = FALSE,
+  return_components = TRUE,
+  debug             = FALSE
+)
+
+head(qgsi_res$ranked_geno)
+qgsi_res$component_summary
+```
+
+---
+
+## The quadratic interaction matrix W_d
+
+`construct_Wd_from_dg()` derives $\mathbf{W}_d$ from the desired gain vector
+and the empirical trait correlation structure in the GEBV data. It supports
+four construction strategies via the `method` argument:
+
+| Method            | Description                                                           |
+|-------------------|-----------------------------------------------------------------------|
+| `"hybrid"`        | Combines diagonal, outer-product, and correlation-weighted components |
+| `"diag_only"`     | Diagonal matrix only; no cross-trait interactions                     |
+| `"dg_outer"`      | Outer product $\mathbf{d}\mathbf{d}^\top$ only                        |
+| `"corr_weighted"` | Outer product weighted by the empirical trait correlation matrix      |
+
+```{r}
+Wobj <- construct_Wd_from_dg(
+  gebv_data      = gebv[, c("GenoID", traits), with = FALSE],
+  trait_cols     = traits,
+  dg             = dg,
+  lower_is_better = c("BL", "NBL", "VHB"),
+  center_traits  = FALSE,
+  scale_traits   = FALSE,
+  method         = "hybrid",
+  lambda_diag    = 1.0,
+  lambda_outer   = 0.5,
+  lambda_corr    = 1.0,
+  offdiag_shrink = 0.5,
+  normalize      = "trace",
+  debug          = FALSE
+)
+
+round(Wobj$W_d, 4)
+```
+
+Positive off-diagonal entries indicate that simultaneous improvement in two
+traits is rewarded by the quadratic term. The diagonal entries encode the
+per-trait squared contribution, scaled to the magnitude of each desired gain.
+The empirical trait correlation matrix used to build $\mathbf{W}_d$ is also
+returned:
+
+```{r}
+round(Wobj$cor_matrix, 3)
+```
+
+When `mode = "qgsi"` or `mode = "both"` in the pipeline, $\mathbf{W}_d$ is
+constructed automatically with the same default settings unless a pre-built
+matrix is passed via `W_d`.
+
+---
+
+## Merging independent outputs
+
+If you run DGSI and QGSI in separate calls, `compare_dg_and_qgsi()` merges
+them by genotype ID and computes rank-difference diagnostics and correlation
+summaries:
+
+```{r, eval=FALSE}
+merged <- compare_dg_and_qgsi(
+  dg_result                = dgsi_res,
+  qgsi_result              = qgsi_res,
+  id_col                   = "GenoID",
+  compute_rank_differences = TRUE,
+  add_correlation_summary  = TRUE,
+  sort_by                  = "DG",
+  debug                    = FALSE
+)
+
+head(merged$comparison_table)
+merged$correlation_summary
+```
+
+The `sort_by` argument accepts `"DG_rank"`, `"QGSI_rank"`, `"DG"`, `"QGSI"`,
+or `"none"`. Note that `"DG_rank"` requires `Rank_SelectionIndex` to be
+present in `dg_result$ranked_geno`; use `"DG"` to sort by score when running
+`select_mode = "trait_thresholds"`.
+
+---
+
+## Practical guidance
+
+**Trait scaling.** If traits are on very different raw scales, set
+`dg_scale_traits = TRUE` for DGSI and `qgsi_scale_traits = TRUE` for QGSI.
+After scaling, `dg` values are interpreted in standard-deviation units.
+When traits are already comparable, leave both flags as `FALSE` (the default).
+
+**Calibrating desired gains.** The relative magnitudes of values in `dg`
+determine the emphasis placed on each trait. Calibrate targets against
+historical rates of genetic gain in your germplasm to ensure they are
+biologically achievable in a single selection cycle.
+
+**`lower_is_better` traits.** Include every trait for which a decrease is the
+breeding goal. Internally, the function multiplies these columns by $-1$ so
+that all objectives point in the same direction. Always specify `dg` values as
+positive quantities regardless of trait direction.
+
+**Optimisation stability.** The DGSI search is stochastic. Increase `n_rep`
+and `n_iter` for more stable results at the cost of computation time.
+For exploratory work, `n_iter = 50` and `n_rep = 3` are adequate. For final
+selection decisions, `n_iter = 200` and `n_rep = 10` or higher are recommended.
+The `mean_replicate_cor` diagnostic provides a quick stability check: values
+above 0.9 indicate good agreement across replicates.
+
+**Choosing between DGSI and QGSI.**
+
+| Situation                               | Recommended method                         |
+|-----------------------------------------|--------------------------------------------|
+| Initial candidate screening             | DGSI — simpler, interpretable coefficients |
+| Traits are known to interact            | QGSI — captures nonlinear synergies        |
+| Rank stability check desired            | Run both; inspect Spearman correlation     |
+| Genomic selection programme with GEBVs  | QGSI — designed for GEBV input             |
+| Phenotype-only data, no GEBVs available | DGSI                                       |
+
+**Debug mode.** Set `debug = TRUE` in any function to print intermediate
+matrices, gain vectors, and sorting decisions at each step.
+
+---
+
+## Citation
+
+Akohoue F (2026). *DGQGSI: Desired-Gain Selection Index and Quadratic Genomic
+Selection Index tools for breeding programs*. R package version 0.1.0.
+<https://github.com/FAkohoue/DGQGSI>
+
+---
+
+## References
+
+Joukhadar R, Li Y, Thistlethwaite R, Forrest KL, Tibbits JF, Trethowan R,
+Hayden MJ (2024). Optimising desired gain indices to maximise selection
+response. *Frontiers in Plant Science* **15**:1337388.
+<https://doi.org/10.3389/fpls.2024.1337388>
+
+Cerón-Rojas JJ, Montesinos-López OA, Montesinos-López A, et al. (2026).
+Nonlinear genomic selection index accelerates multi-trait crop improvement.
+*Nature Communications* **17**:1991.
+<https://doi.org/10.1038/s41467-026-69890-3>

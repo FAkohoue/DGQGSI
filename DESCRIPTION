@@ -1,17 +1,29 @@
 Package: DGQGSI
 Type: Package
-Title: Desired-Gain Selection Index and Desired-Gain QGSI Tools
+Title: Desired-Gain Selection Index and Quadratic Genomic Selection Index
+    Tools for Plant Breeding
 Version: 0.1.0
-Authors@R: 
+Authors@R:
     person(
-      given = "Félicien",
+      given  = "Félicien",
       family = "Akohoue",
-      email = "akohoue.f@gmail.com",
-      role = c("aut", "cre")
+      email  = "akohoue.f@gmail.com",
+      role   = c("aut", "cre"),
+      comment = c(ORCID = "")
     )
-Description: Tools to compute desired-gain selection indices, desired-gain
-    adapted quadratic genomic selection indices, automatic quadratic matrix
-    construction, wrapper workflows, and comparison tables for breeding data.
+Description: Provides tools for multi-trait selection in plant breeding
+    programs using desired-gain-based selection indices. Implements two
+    complementary workflows: a desired-gain selection index optimization
+    (DGSI) that estimates index weights whose realized genetic gains match
+    breeder-defined targets, following Joukhadar et al. (2024)
+    <doi:10.3389/fpls.2024.1337388>; and a desired-gain quadratic genomic
+    selection index (QGSI) that incorporates linear and quadratic genomic
+    estimated breeding value (GEBV) components to capture nonlinear trait
+    interactions, following Ceron-Rojas et al. (2026)
+    <doi:10.1038/s41467-026-69890-3>. Additional tools include automatic
+    construction of the quadratic desired-gain matrix, a high-level pipeline
+    wrapper for running one or both workflows, and a comparison helper that
+    merges and ranks genotype-level outputs from both methods.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -25,6 +37,5 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://github.com/FAkohoue/DGQGSI,
-    https://fakohoue.github.io/DGQGSI/
+URL: https://github.com/FAkohoue/DGQGSI, https://FAkohoue.github.io/DGQGSI/
 BugReports: https://github.com/FAkohoue/DGQGSI/issues
