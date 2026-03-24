@@ -92,7 +92,7 @@ solution.
 For genotype $i$ with GEBV vector ${\mathbf{γ}}_{i}$, the quadratic
 index is:
 
-$$\text{QGSI-DG}_{i} = \mathbf{d}^{\top}{\mathbf{γ}}_{i} + {\mathbf{γ}}_{i}^{\top}\mathbf{W}_{d}\,{\mathbf{γ}}_{i}$$
+$$\text{QGSI\_DG}_{i} = \mathbf{d}^{\top}{\mathbf{γ}}_{i} + {\mathbf{γ}}_{i}^{\top}\mathbf{W}_{d}\,{\mathbf{γ}}_{i}$$
 
 where:
 
