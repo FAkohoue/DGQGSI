@@ -25,3 +25,4 @@ Useful links:
 ## Author
 
 **Maintainer**: Félicien Akohoue <akohoue.f@gmail.com>
+([ORCID](https://orcid.org/0000-0002-2160-0182))
