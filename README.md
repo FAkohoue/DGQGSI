@@ -61,36 +61,58 @@ A more intuitive alternative is to specify **desired genetic gains** directly.
 
 ### 1. Desired-Gain Selection Index Optimization (DGSI)
 
-The DGSI finds a weight vector **b** such that the linear index
+The DGSI finds a weight vector $\mathbf{b}$ such that the linear index
 
 $$I = \mathbf{b}^\top \mathbf{X}$$
 
-produces realized gains **g** matching the breeder's desired gain vector **d**.
-The algorithm in `run_desired_gain_index_Joukhadar2024()`:
+where:
 
-1. Samples candidate desired-gain vectors around **d**.
-2. Computes index coefficients **b** for each candidate.
-3. Evaluates the realized gains **g** on the selected subset.
-4. Retains the weights that minimise the deviation between **g** and **d**.
+| Symbol | Description |
+|--------|-------------|
+| $\mathbf{b}$ | Vector of optimised index weights |
+| $\mathbf{X}$ | Matrix of candidate trait values |
+| $I$ | Selection index score per genotype |
 
-Because the search is stochastic, multiple independent replicates are run and
-the best solution across replicates is returned, together with a
-replicate-stability diagnostic (`mean_replicate_cor`).
+produces realized genetic gains $\mathbf{g}$ as close as possible to the
+breeder's desired gain vector $\mathbf{d}$. The algorithm in
+`run_desired_gain_index_Joukhadar2024()`:
+
+1. Samples candidate desired-gain vectors in the neighbourhood of $\mathbf{d}$.
+2. Computes index coefficients $\mathbf{b}$ for each candidate using the
+   phenotypic correlation matrix $\mathbf{P}$ and genetic covariance matrix
+   $\mathbf{G}$.
+3. Evaluates the realized gains $\mathbf{g}$ on the selected subset.
+4. Retains the weights that minimise the deviation between $\mathbf{g}$ and
+   $\mathbf{d}$.
+
+Because the search is stochastic, `n_rep` independent replicates are run and
+the best solution is selected by the lowest objective value `best_q`. The
+`mean_replicate_cor` diagnostic summarises index-vector agreement across
+replicates; values above 0.9 indicate a stable solution.
 
 ### 2. Desired-Gain Quadratic Genomic Selection Index (QGSI)
 
 For genotype $i$ with GEBV vector $\boldsymbol{\gamma}_i$, the quadratic index
 is:
 
-$$\mathrm{QGSI\_DG}_i = \mathbf{d}^\top \boldsymbol{\gamma}_i +
+$$\text{QGSI-DG}_i = \mathbf{d}^\top \boldsymbol{\gamma}_i +
 \boldsymbol{\gamma}_i^\top \mathbf{W}_d \, \boldsymbol{\gamma}_i$$
 
-where **d** is the desired gain vector and $\mathbf{W}_d$ is the quadratic
-interaction matrix constructed automatically by `construct_Wd_from_dg()`. The
-**linear term** rewards GEBVs aligned with the desired direction; the
-**quadratic term** additionally rewards genotypes that combine favourable trait
-values simultaneously, capturing synergies and penalising trade-offs invisible
-to a linear index.
+where:
+
+| Symbol | Description |
+|--------|-------------|
+| $\mathbf{d}$ | Desired gain vector defined by the breeder |
+| $\boldsymbol{\gamma}_i$ | Vector of trait GEBVs for genotype $i$ |
+| $\mathbf{W}_d$ | Quadratic interaction matrix constructed from $\mathbf{d}$ |
+
+The **linear term** $\mathbf{d}^\top \boldsymbol{\gamma}_i$ rewards GEBVs
+aligned with the desired direction; the **quadratic term**
+$\boldsymbol{\gamma}_i^\top \mathbf{W}_d \, \boldsymbol{\gamma}_i$
+additionally rewards genotypes that combine favourable trait values
+simultaneously, capturing synergies and penalising trade-offs invisible to a
+linear index. $\mathbf{W}_d$ is constructed automatically by
+`construct_Wd_from_dg()`.
 
 ### Pipeline overview
 
