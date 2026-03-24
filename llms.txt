@@ -92,7 +92,7 @@ solution.
 For genotype $i$ with GEBV vector ${\mathbf{γ}}_{i}$, the quadratic
 index is:
 
-$${QGSI\text{-}DG}_{i} = \mathbf{d}^{\top}{\mathbf{γ}}_{i} + {\mathbf{γ}}_{i}^{\top}\mathbf{W}_{d}\,{\mathbf{γ}}_{i}$$
+$${QGSI\text{-}DG}_{i} = \mathbf{d}^{\top}{\mathbf{γ}}_{i} + {\mathbf{γ}}_{i}^{\top}\mathbf{W}_{d}\ {\mathbf{γ}}_{i}$$
 
 where:
 
@@ -104,7 +104,7 @@ where:
 
 The **linear term** $\mathbf{d}^{\top}{\mathbf{γ}}_{i}$ rewards GEBVs
 aligned with the desired direction; the **quadratic term**
-${\mathbf{γ}}_{i}^{\top}\mathbf{W}_{d}\,{\mathbf{γ}}_{i}$ additionally
+${\mathbf{γ}}_{i}^{\top}\mathbf{W}_{d}\ {\mathbf{γ}}_{i}$ additionally
 rewards genotypes that combine favourable trait values simultaneously,
 capturing synergies and penalising trade-offs invisible to a linear
 index. $\mathbf{W}_{d}$ is constructed automatically by
