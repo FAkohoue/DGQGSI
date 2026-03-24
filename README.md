@@ -82,7 +82,7 @@ replicate-stability diagnostic (`mean_replicate_cor`).
 For genotype $i$ with GEBV vector $\boldsymbol{\gamma}_i$, the quadratic index
 is:
 
-$$\text{QGSI\_DG}_i = \mathbf{d}^\top \boldsymbol{\gamma}_i +
+$$\mathrm{QGSI\_DG}_i = \mathbf{d}^\top \boldsymbol{\gamma}_i +
 \boldsymbol{\gamma}_i^\top \mathbf{W}_d \, \boldsymbol{\gamma}_i$$
 
 where **d** is the desired gain vector and $\mathbf{W}_d$ is the quadratic
