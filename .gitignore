@@ -5,16 +5,12 @@
 .Renviron
 
 # RStudio project files
-.Rproj.user/
+.Rproj.user
+*.Rproj
 
 # R package build artifacts
 .Rbuildignore
 .Rcheck/
+*.Rcheck
 *.tar.gz
-
-# OS artifacts
-.DS_Store
-Thumbs.db
-
-# Test coverage
-coverage/
+*.zip
