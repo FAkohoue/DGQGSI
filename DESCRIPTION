@@ -5,11 +5,11 @@ Title: Desired-Gain Selection Index and Quadratic Genomic Selection Index
 Version: 0.1.0
 Authors@R:
     person(
-      given  = "Félicien",
-      family = "Akohoue",
-      email  = "akohoue.f@gmail.com",
-      role   = c("aut", "cre"),
-      comment = c(ORCID = "")
+      given   = "Félicien",
+      family  = "Akohoue",
+      email   = "akohoue.f@gmail.com",
+      role    = c("aut", "cre"),
+      comment = c(ORCID = "0000-0002-2160-0182")
     )
 Description: Provides tools for multi-trait selection in plant breeding
     programs using desired-gain-based selection indices. Implements two
@@ -37,5 +37,6 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr
-URL: https://github.com/FAkohoue/DGQGSI, https://FAkohoue.github.io/DGQGSI/
+URL: https://github.com/FAkohoue/DGQGSI,
+    https://FAkohoue.github.io/DGQGSI/
 BugReports: https://github.com/FAkohoue/DGQGSI/issues
