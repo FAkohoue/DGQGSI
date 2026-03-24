@@ -2,19 +2,20 @@
 
 ## Authors
 
-- **Félicien Akohoue**. Author, maintainer.
+- **[Félicien Akohoue](https://github.com/FAkohoue)**. Author,
+  maintainer.
 
 ## Citation
 
 Source:
 [`DESCRIPTION`](https://github.com/FAkohoue/DGQGSI/blob/main/DESCRIPTION)
 
-Akohoue F (2026). *DGQGSI: Desired-Gain Selection Index and Desired-Gain
-QGSI Tools*. R package version 0.1.0,
-<https://github.com/FAkohoue/DGQGSI>.
+Akohoue F (2026). *DGQGSI: Desired-Gain Selection Index and Quadratic
+Genomic Selection Index Tools for Plant Breeding*. R package version
+0.1.0, <https://github.com/FAkohoue/DGQGSI>.
 
     @Manual{,
-      title = {DGQGSI: Desired-Gain Selection Index and Desired-Gain QGSI Tools},
+      title = {DGQGSI: Desired-Gain Selection Index and Quadratic Genomic Selection Index Tools for Plant Breeding},
       author = {Félicien Akohoue},
       year = {2026},
       note = {R package version 0.1.0},

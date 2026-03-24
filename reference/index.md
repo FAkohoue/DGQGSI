@@ -20,3 +20,9 @@
 - [`compare_dg_and_qgsi()`](https://FAkohoue.github.io/DGQGSI/reference/compare_dg_and_qgsi.md)
   : Merge desired-gain index and desired-gain QGSI outputs into one
   comparison table
+
+## Package
+
+- [`DGQGSI`](https://FAkohoue.github.io/DGQGSI/reference/DGQGSI-package.md)
+  [`DGQGSI-package`](https://FAkohoue.github.io/DGQGSI/reference/DGQGSI-package.md)
+  : DGQGSI: Desired-Gain Selection Index and Desired-Gain QGSI Tools

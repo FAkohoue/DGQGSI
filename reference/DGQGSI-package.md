@@ -18,7 +18,7 @@ Useful links:
 
 - <https://github.com/FAkohoue/DGQGSI>
 
-- <https://fakohoue.github.io/DGQGSI/>
+- <https://FAkohoue.github.io/DGQGSI/>
 
 - Report bugs at <https://github.com/FAkohoue/DGQGSI/issues>
 
